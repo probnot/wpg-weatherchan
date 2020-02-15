@@ -11,6 +11,7 @@ It was tested on a Raspberry Pi 3, but should run on other models as well. Becau
 
 If you're launching this from an SSH session, I recommend doing so through a script file with the following:
 >export DISPLAY=:0.0
+
 >python3 wpg-weatherchan.py
 
 ## License
