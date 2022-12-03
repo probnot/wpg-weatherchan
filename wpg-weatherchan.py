@@ -1,236 +1,763 @@
 # Retro Winnipeg Weather Channel
 # By probnot
-# V0.0.17
 
 from tkinter import *
 import time
 import datetime
-from env_canada import ECData
-import feedparser
-import requests
-import json
+import asyncio # for env_canada
+import textwrap # used to format forecast text
+from env_canada import ECWeather
+import feedparser # for RSS feed
+import requests # for RSS feed
+import json # for RSS feed
+import pygame # for background music
+import random # for background music
+import os # for background music
+import re # for word shortener
 
-# clock Updater
+prog = "wpg-weather."
+ver = "2.0.1"
+# 2.0.1
+# - Changed forecast time to use current time when updating weather - the date and time from forecast_time in env_canada returns odd results
+# - Changed UV INDEX to show -- instead of blank if no index is present
 
+# DEF clock Updater
 def clock():
-    current = time.strftime("%I:%M:%S")
+
+    current = time.strftime("%-I %M %S").rjust(8," ")
     timeText.configure(text=current)
     root.after(1000, clock) # run every 1sec
     
-# main weather pages
-    
-def weather_page():
+# DEF main weather pages 
+def weather_page(PageColour, PageNum):
+
     # pull in current seconds and minutes -- to be used to cycle the middle section every 30sec
+    
     time_sec = time.localtime().tm_sec
     time_min = time.localtime().tm_min
     
     days = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]
-    months = [" ", "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"] 
-    
-    # read in day1 text summary forecast
-    wsum_day1 = ec_en.conditions["text_summary"]["value"] 
-    
-    # padding for final string, to move fill remaining line and next line
-    len_pad_day1 = len(wsum_day1) % 35 
-    w_pad_day1 = ""
-    for r in range(35*2-len_pad_day1):
-        w_pad_day1 = w_pad_day1 + " " 
-    
-    # read in day2 text summary forecast
-    wsum_day2 =  ec_en.daily_forecasts[2]["period"] + ". " + ec_en.daily_forecasts[2]["text_summary"] 
-    
-    # padding for final string, to move fill remaining line and next line
-    len_pad_day2 = len(wsum_day2) % 35 
-    w_pad_day2 = ""
-    for r in range(35*2-len_pad_day2):
-        w_pad_day2 = w_pad_day2 + " "
-    
-    # read in day3 text summary forecast
-    wsum_day3 = ec_en.daily_forecasts[3]["period"] + ". " + ec_en.daily_forecasts[3]["text_summary"] 
-    
-    # padding for final string, to move fill remaining line and next line
-    len_pad_day3 = len(wsum_day3) % 35 
-    w_pad_day3 = ""
-    for r in range(35*2-len_pad_day3):
-        w_pad_day3 = w_pad_day3 + " "
-    
-    # read in day4 text summary forecast
-    wsum_day4 = ec_en.daily_forecasts[4]["period"] + ". " + ec_en.daily_forecasts[4]["text_summary"] 
+    months = [" ", "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]    
+    linebreak = ['\n']
 
-    # padding for final string, to move fill remaining line and next line
-    len_pad_day4 = len(wsum_day4) % 35 
-    w_pad_day4 = ""
-    for r in range(35*2-len_pad_day4):
-        w_pad_day4 = w_pad_day4 + " "
+    PageTotal = 10
 
-    wsum_day5 = ec_en.daily_forecasts[5]["period"] + ". " + ec_en.daily_forecasts[5]["text_summary"] # read in day4 text summary forecast
-
-    s = wsum_day1.upper() + w_pad_day1 + wsum_day2.upper() + w_pad_day2 + wsum_day3.upper() + w_pad_day3 + wsum_day4.upper() + w_pad_day4 + wsum_day5.upper()
-    
-    if time_sec < 30:
-        weathercol = "Blue"
-        if (time_min % 2) == 0: # screen 1 -- text summary forecasts
+    if (PageNum == 1):
         
-            s1 = s[:35]
-            s2 = s[35:70]
-            s3 = s[70:105]
-            s4 = s[105:140]
-            s5 = s[140:175]
-            s6 = s[175:210]
-            s7 = s[210:245]
-            s8 = s[245:280]
-        else: # screen 3 -- Today's day/date + specific weather conditions
-            print(ec_en.forecast_time)
-            day = datetime.datetime.today().weekday()
-            # month = datetime.datetime.today().month
-            month = int(ec_en.forecast_time[4:6])
-            if (int(ec_en.forecast_time[8:10]) > 12):
-                w_time = int(ec_en.forecast_time[8:10]) - 12
-                ampm = "PM"
-            else:
-                w_time = int(ec_en.forecast_time[8:10])
-                ampm = "AM"
+        # ===================== Screen 1 =====================
+        # Today's day/date + specific weather conditions
+        #print(time.strftime("%H:%M.") + prog + ver + ".WEATHER_PAGE-display page " + str(PageNum))            
+        
+        # get local timezone to show on screen
+        local_tz = datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo
+        
+        # weather data
+        temp_cur = str(ec_en_wpg.conditions["temperature"]["value"])
+        temp_high = str(ec_en_wpg.conditions["high_temp"]["value"])
+        temp_low = str(ec_en_wpg.conditions["low_temp"]["value"])
+        humidity = str(ec_en_wpg.conditions["humidity"]["value"])
+        condition = ec_en_wpg.conditions["condition"]["value"]
+        pressure = str(ec_en_wpg.conditions["pressure"]["value"])   
+        tendency = ec_en_wpg.conditions["tendency"]["value"]
+        dewpoint = str(ec_en_wpg.conditions["dewpoint"]["value"])
+        uv_index = str(ec_en_wpg.conditions["uv_index"]["value"]) if ec_en_wpg.conditions["uv_index"] and ec_en_wpg.conditions["uv_index"]["value"] != None else "--"
+        pop = str(ec_en_wpg.conditions["pop"]["value"]) if ec_en_wpg.conditions["pop"] and ec_en_wpg.conditions["pop"]["value"] != None else "0"
+        
+        # check severity of uv index
+        if ec_en_wpg.conditions["uv_index"]["value"] != None:
+            if ec_en_wpg.conditions["uv_index"]["value"] <= 2:
+                uv_cat = "LOW"
+            elif ec_en_wpg.conditions["uv_index"]["value"] > 2 and ec_en_wpg.conditions["uv_index"]["value"] <= 5:
+                uv_cat = "MODERT"
+            elif ec_en_wpg.conditions["uv_index"]["value"] > 5 and ec_en_wpg.conditions["uv_index"]["value"] <= 7:
+                uv_cat = "HIGH"
+            elif ec_en_wpg.conditions["uv_index"]["value"] > 7 and ec_en_wpg.conditions["uv_index"]["value"] <= 10:
+                uv_cat = "V.HIGH"
+            elif ec_en_wpg.conditions["uv_index"]["value"] > 10:
+                uv_cat = "EXTRM"
+        else:
+            uv_cat = ""
+        
+        # check if windchill or humidex is present, if neither leave area blank
+        if ("value" in ec_en_wpg.conditions["wind_chill"] and ec_en_wpg.conditions["wind_chill"]["value"] != None):
+            windchill = str(ec_en_wpg.conditions["wind_chill"]["value"])
+            windchildex = "WIND CHILL " + windchill + " C"
+        elif ("value" in ec_en_wpg.conditions["humidex"] and ec_en_wpg.conditions["humidex"]["value"] != None):
+            humidex = str(windchill = ec_en_wpg.conditions["humidex"]["value"])
+            windchildex = "HUMIDEX " + humidex + " C       "
+        else:
+            windchildex = ""
+        
+        # check if there is wind - if not, display NO WIND
+        if ("value" in ec_en_wpg.conditions["wind_dir"] and ec_en_wpg.conditions["wind_dir"]["value"] != None):        
+            wind_dir = ec_en_wpg.conditions["wind_dir"]["value"]
+            wind_spd = str(ec_en_wpg.conditions["wind_speed"]["value"])
+            windstr = "WIND " + wind_dir + " " + wind_spd + " KMH"
+        else:
+            windstr = "NO WIND"
                 
-            tendency = ec_en.conditions["tendency"]["value"]
-            
-            s1 = "WINNIPEG - " + days[day] + ", " + months[month] + "." + ec_en.forecast_time[6:8] + "/" + ec_en.forecast_time[:4] + " " + str(w_time) + ":" + ec_en.forecast_time[10:12] + " " + ampm
-            s2 = " "
-            if "value" in ec_en.conditions["wind_chill"]:
-                s3 = "TEMP " + ec_en.conditions["temperature"]["value"] + "C (FEELS LIKE " + ec_en.conditions["wind_chill"]["value"] + "C)"
-                s4 = ".. AND " + tendency.upper()
-            else:
-                s3 = "TEMPERATURE " + ec_en.conditions["temperature"]["value"] + "C" + " .. AND " + tendency.upper()
-                s4 = ""
-            s5 = "HIGH OF " + ec_en.conditions["high_temp"]["value"] + "C     " + "LOW OF " + ec_en.conditions["low_temp"]["value"] + "C"
-            if "value" in ec_en.conditions["wind_dir"]:
-                s6 = "WIND " + ec_en.conditions["wind_dir"]["value"] + " " + ec_en.conditions["wind_speed"]["value"] + " KMH   VISIBILITY " + ec_en.conditions["visibility"]["value"] + "KM"
-                s7 = "HUMIDITY " + ec_en.conditions["humidity"]["value"] + "%    DEWPOINT " + ec_en.conditions["dewpoint"]["value"] + "C"
-                s8 = "PRESSURE " + ec_en.conditions["pressure"]["value"] + "KPA"
-            else:
-                if "value" in ec_en.conditions["visibility"]:
-                    s6 = "VISIBILITY " + ec_en.conditions["visibility"]["value"] + "KM"
-                    s7 = "HUMIDITY " + ec_en.conditions["humidity"]["value"] + "%    DEWPOINT " + ec_en.conditions["dewpoint"]["value"] + "C"
-                    s8 = "PRESSURE " + ec_en.conditions["pressure"]["value"] + "KPA"
-                else:
-                    s6 = "HUMIDITY " + ec_en.conditions["humidity"]["value"] + "%    DEWPOINT " + ec_en.conditions["dewpoint"]["value"] + "C"
-                    s7 = "PRESSURE " + ec_en.conditions["pressure"]["value"] + "KPA"
-                    s8 = ""
-            s7 = "HUMIDITY " + ec_en.conditions["humidity"]["value"] + "%    DEWPOINT " + ec_en.conditions["dewpoint"]["value"] + "C"
-            s8 = "PRESSURE " + ec_en.conditions["pressure"]["value"] + "KPA"
-    if time_sec >= 30:
-        weathercol = "Red"
-        if (time_min % 2) == 0: # screen 2 -- text summary forecasts continued
-            s1 = s[280:315]
-            s2 = s[315:350]
-            s3 = s[350:385]
-            s4 = s[385:420]
-            s5 = s[420:455]
-            s6 = s[455:490]
-            s7 = s[490:525]
-            s8 = s[525:560]
-        else: # screen 4 -- static channel listing page
-            
-            # update weather info between weather screens
-            ec_en.update()
-            print("weather updated 2nd")
+        # check visibility, if no data then show --
+        if ("value" in ec_en_wpg.conditions["visibility"] and ec_en_wpg.conditions["visibility"]["value"] != None):
+            visibility = str(ec_en_wpg.conditions["visibility"]["value"])
+            visibstr = "VISBY " + visibility.rjust(5," ") + " KM         "
+        else:
+            visibstr = "VISBY    -- KM         "
+     
+        # create 8 lines of text     
+        s1 = ("WINNIPEG " + real_forecast_time + " " + str(local_tz) + "  " + real_forecast_date.upper()).center(35," ")
+        s2 = "TEMP  " + temp_cur.rjust(5," ") + " C                "
+        s2 = s2[0:24] + " HIGH " + temp_high.rjust(3," ") + " C"
+        s3 = word_short(condition,24) + "                         "
+        s3 = s3[0:24] + "  LOW " + temp_low.rjust(3," ") + " C"
+        s4 = ("CHANCE OF PRECIP. " + pop + " %").center(35," ")
+        s5 = "HUMID  " + humidity.rjust(5," ") + " %         "
+        s5 = s5[0:18] + windstr.rjust(17," ")
+        s6 = visibstr[0:18] + windchildex.rjust(17," ")
+        s7 = "DEW   " + dewpoint.rjust(5," ") + " C         " 
+        s7 = s7[0:18] + ("UV INDEX " + uv_index + " " + uv_cat).rjust(17," ")
+        s8 = ("PRESSURE " + pressure + " KPA AND " + tendency.upper()).center(35," ")
 
-            s1 = "==========CHANNEL LISTING=========="
-            s2 = "3.1  SRC(CBWFT)    20   SEINFELD"
-            s3 = "6.1  CBC(CBWT)     22   WEATHER"
-            s4 = "7.1  CTV(CKY)      35.1 JOYTV(CIIT)"
-            s5 = "9.1  GLOBAL(CKND)"
-            s6 = "13.1 CITY(CHMI)" 
-            s7 = "14   THE SIMPSONS"
-            s8 = "18   LOONEY TUNES"
+    elif (PageNum == 2):
+    
+        # ===================== Screen 2 =====================
+        # text forecast for 5 days - page 1 of 3
+        #print(time.strftime("%H:%M.") + prog + ver + ".WEATHER_PAGE-display page " + str(PageNum))   
 
+        # pull text forecasts from env_canada
+        wsum_day1 = textwrap.wrap(ec_en_wpg.conditions["text_summary"]["value"].upper(), 35)
+        wsum_day2 = textwrap.wrap(ec_en_wpg.daily_forecasts[1]["period"].upper() + ".." + ec_en_wpg.daily_forecasts[1]["text_summary"].upper(), 35)
+        wsum_day3 = textwrap.wrap(ec_en_wpg.daily_forecasts[2]["period"].upper() + ".." + ec_en_wpg.daily_forecasts[2]["text_summary"].upper(), 35)
+        wsum_day4 = textwrap.wrap(ec_en_wpg.daily_forecasts[3]["period"].upper() + ".." + ec_en_wpg.daily_forecasts[3]["text_summary"].upper(), 35)    
+        wsum_day5 = textwrap.wrap(ec_en_wpg.daily_forecasts[4]["period"].upper() + ".." + ec_en_wpg.daily_forecasts[4]["text_summary"].upper(), 35)
+        wsum_day6 = textwrap.wrap(ec_en_wpg.daily_forecasts[5]["period"].upper() + ".." + ec_en_wpg.daily_forecasts[5]["text_summary"].upper(), 35)   
+        
+        # build text_forecast string
+        global text_forecast
+        text_forecast = wsum_day1 + linebreak + wsum_day2 + linebreak + wsum_day3 + linebreak + wsum_day4 + linebreak + wsum_day5 + linebreak + wsum_day6
+    
+        # create 8 lines of text
+        s1 = "WINNIPEG CITY FORECAST".center(35," ")
+        s2 = (text_forecast[0]).center(35," ") if len(text_forecast) >= 1 else " "
+        s3 = (text_forecast[1]).center(35," ") if len(text_forecast) >= 2 else " "
+        s4 = (text_forecast[2]).center(35," ") if len(text_forecast) >= 3 else " "
+        s5 = (text_forecast[3]).center(35," ") if len(text_forecast) >= 4 else " "
+        s6 = (text_forecast[4]).center(35," ") if len(text_forecast) >= 5 else " "
+        s7 = (text_forecast[5]).center(35," ") if len(text_forecast) >= 6 else " "
+        s8 = (text_forecast[6]).center(35," ") if len(text_forecast) >= 7 else " "
+
+    elif (PageNum == 3):
+    
+        # ===================== Screen 3 =====================
+        # text forecast for 5 days - page 2 of 3
+        # Screen 1 must run first as it sets up variables
+        #print(time.strftime("%H:%M.") + prog + ver + ".WEATHER_PAGE-display page " + str(PageNum))    
+        
+        # create 8 lines of text
+        s1 = "WINNIPEG CITY FORECAST CONT'D".center(35," ")
+        s2 = (text_forecast[7]).center(35," ") if len(text_forecast) >= 8 else " "
+        s3 = (text_forecast[8]).center(35," ") if len(text_forecast) >= 9 else " "
+        s4 = (text_forecast[9]).center(35," ") if len(text_forecast) >= 10 else " "
+        s5 = (text_forecast[10]).center(35," ") if len(text_forecast) >= 11 else " "
+        s6 = (text_forecast[11]).center(35," ") if len(text_forecast) >= 12 else " "
+        s7 = (text_forecast[12]).center(35," ") if len(text_forecast) >= 13 else " "
+        s8 = (text_forecast[13]).center(35," ") if len(text_forecast) >= 14 else " " 
+
+    elif (PageNum == 4):
+ 
+        # ===================== Screen 4 =====================
+        # text forecast for 5 days - page 3 of 3 -- optional
+        # Screen 1 must run first as it sets up variables        
+        
+        # check if this page is needed
+        if len(text_forecast) <= 14:
+            #print(time.strftime("%H:%M.") + prog + ver + ".WEATHER_PAGE-display page " + str(PageNum) + " skipped!") 
+            PageNum = PageNum + 1 #skip this page
+        else:
+            #print(time.strftime("%H:%M.") + prog + ver + ".WEATHER_PAGE-display page " + str(PageNum))    
+        
+            # create 8 lines of text       
+            s1 = "WINNIPEG CITY FORECAST CONT'D".center(35," ")
+            s2 = (text_forecast[14]).center(35," ") if len(text_forecast) >= 15 else " "       
+            s3 = (text_forecast[15]).center(35," ") if len(text_forecast) >= 16 else " "        
+            s4 = (text_forecast[16]).center(35," ") if len(text_forecast) >= 17 else " "
+            s5 = (text_forecast[17]).center(35," ") if len(text_forecast) >= 18 else " "
+            s6 = (text_forecast[18]).center(35," ") if len(text_forecast) >= 19 else " "
+            s7 = (text_forecast[19]).center(35," ") if len(text_forecast) >= 20 else " "
+            s8 = (text_forecast[20]).center(35," ") if len(text_forecast) >= 21 else " "                  
+    
+    elif (PageNum == 5):
+    
+        # ===================== Screen 5 =====================
+        # Weather States
+        #print(time.strftime("%H:%M.") + prog + ver + ".WEATHER_PAGE-display page " + str(PageNum))            
+ 
+        # weather data 
+        temp_cur = str(ec_en_wpg.conditions["temperature"]["value"]) 
+        temp_high = str(ec_en_wpg.conditions["high_temp"]["value"])
+        temp_low = str(ec_en_wpg.conditions["low_temp"]["value"])
+        temp_yest_high =str(round(ec_en_wpg.conditions["high_temp_yesterday"]["value"]))
+        temp_yest_low =str(round(ec_en_wpg.conditions["low_temp_yesterday"]["value"]))
+        temp_norm_high =str(ec_en_wpg.conditions["normal_high"]["value"])
+        temp_norm_low =str(ec_en_wpg.conditions["normal_low"]["value"])      
+
+        # create 8 lines of text   
+        s1 = ("TEMPERATURE STATISTICS FOR WINNIPEG").center(35," ")
+        s2 = "       CURRENT " + temp_cur.rjust(5," ") + " C  "
+        s3 = ""
+        s4 = "                 LOW    HIGH"
+        s5 = "        TODAY   " + temp_low.rjust(3," ") + " C  " + temp_high.rjust(3," ") + " C"
+        s6 = "    YESTERDAY   " + temp_yest_low.rjust(3," ") + " C  " + temp_yest_high.rjust(3," ") + " C"
+        s7 = "       NORMAL   " + temp_norm_low.rjust(3," ") + " C  " + temp_norm_high.rjust(3," ") + " C"
+        s8 = ""
+    
+    elif (PageNum == 6):    
+    
+        # ===================== Screen 6 =====================
+        # Manitoba and Regional Temperatures & Conditions
+        #print(time.strftime("%H:%M.") + prog + ver + ".WEATHER_PAGE-display page " + str(PageNum))    
+
+        day = days[datetime.datetime.today().weekday()]
+        month = str(months[(ec_en_wpg.forecast_time.month)])         
+        daynum = str(ec_en_wpg.forecast_time.day)
+        year = str(ec_en_wpg.forecast_time.year)
+ 
+        temp_brn = str(ec_en_brn.conditions["temperature"]["value"])
+        temp_thm = str(ec_en_thm.conditions["temperature"]["value"])
+        temp_tps = str(ec_en_tps.conditions["temperature"]["value"])    
+        temp_fln = str(ec_en_fln.conditions["temperature"]["value"])  
+        temp_chu = str(ec_en_chu.conditions["temperature"]["value"]) 
+        temp_ken = str(ec_en_ken.conditions["temperature"]["value"])  
+        temp_tby = str(ec_en_tby.conditions["temperature"]["value"])   
+
+        cond_brn = (ec_en_brn.conditions["condition"]["value"]) if ("value" in ec_en_brn.conditions["condition"] and ec_en_brn.conditions["condition"]["value"] != None) else " "
+        cond_thm = (ec_en_thm.conditions["condition"]["value"]) if ("value" in ec_en_thm.conditions["condition"] and ec_en_thm.conditions["condition"]["value"] != None) else " "   
+        cond_tps = (ec_en_tps.conditions["condition"]["value"]) if ("value" in ec_en_tps.conditions["condition"] and ec_en_tps.conditions["condition"]["value"] != None) else " "
+        cond_fln = (ec_en_fln.conditions["condition"]["value"]) if ("value" in ec_en_fln.conditions["condition"] and ec_en_fln.conditions["condition"]["value"] != None) else " "
+        cond_chu = (ec_en_chu.conditions["condition"]["value"]) if ("value" in ec_en_chu.conditions["condition"] and ec_en_chu.conditions["condition"]["value"] != None) else " "
+        cond_ken = (ec_en_ken.conditions["condition"]["value"]) if ("value" in ec_en_ken.conditions["condition"] and ec_en_ken.conditions["condition"]["value"] != None) else " "
+        cond_tby = (ec_en_tby.conditions["condition"]["value"]) if ("value" in ec_en_tby.conditions["condition"] and ec_en_tby.conditions["condition"]["value"] != None) else " "
+        
+        # create 8 lines of text   
+        s1=(real_forecast_date.upper()).center(35," ")
+        s2="BRANDON     " + temp_brn.rjust(5," ") + " C    "
+        s2= s2[0:20] + word_short(cond_brn,13)[0:13]
+        s3="THE PAS     " + temp_tps.rjust(5," ") + " C     "
+        s3= s3[0:20] + word_short(cond_tps,13)[0:13]
+        s4="FLIN FLON   " + temp_fln.rjust(5," ") + " C     "
+        s4= s4[0:20] + word_short(cond_fln,13)[0:13]
+        s5="THOMPSON    " + temp_thm.rjust(5," ") + " C     "
+        s5= s5[0:20] + word_short(cond_thm,13)[0:13]
+        s6="CHURCHILL   " + temp_chu.rjust(5," ") + " C     "
+        s6= s6[0:20] + word_short(cond_chu,13)[0:13]
+        s7="KENORA      " + temp_ken.rjust(5," ") + " C     "
+        s7= s7[0:20] + word_short(cond_ken,13)[0:13]
+        s8="THUNDER BAY " + temp_tby.rjust(5," ") + " C     "
+        s8= s8[0:20] + word_short(cond_tby,13)[0:13]
+
+    elif (PageNum == 7):
+    
+        # ===================== Screen 7 =====================
+        # Western Canada Temperatures & Conditions       
+        #print(time.strftime("%H:%M.") + prog + ver + ".WEATHER_PAGE-display page " + str(PageNum))    
+        
+        day = days[datetime.datetime.today().weekday()]
+        month = str(months[(ec_en_wpg.forecast_time.month)])         
+        daynum = str(ec_en_wpg.forecast_time.day)
+        year = str(ec_en_wpg.forecast_time.year)
+ 
+        temp_vic = str(ec_en_vic.conditions["temperature"]["value"])
+        temp_van = str(ec_en_van.conditions["temperature"]["value"])
+        temp_edm = str(ec_en_edm.conditions["temperature"]["value"])    
+        temp_cal = str(ec_en_cal.conditions["temperature"]["value"])  
+        temp_ssk = str(ec_en_ssk.conditions["temperature"]["value"])  
+        temp_reg = str(ec_en_reg.conditions["temperature"]["value"])   
+        temp_wht = str(ec_en_wht.conditions["temperature"]["value"]) 
+
+        cond_vic = (ec_en_vic.conditions["condition"]["value"]) if ("value" in ec_en_vic.conditions["condition"] and ec_en_vic.conditions["condition"]["value"] != None) else " "
+        cond_van = (ec_en_van.conditions["condition"]["value"])[0:13] if ("value" in ec_en_van.conditions["condition"] and ec_en_van.conditions["condition"]["value"] != None) else " "   
+        cond_edm = (ec_en_edm.conditions["condition"]["value"])[0:13] if ("value" in ec_en_edm.conditions["condition"] and ec_en_edm.conditions["condition"]["value"] != None) else " "
+        cond_cal = (ec_en_cal.conditions["condition"]["value"])[0:13] if ("value" in ec_en_cal.conditions["condition"] and ec_en_cal.conditions["condition"]["value"] != None) else " "
+        cond_ssk = (ec_en_ssk.conditions["condition"]["value"])[0:13] if ("value" in ec_en_ssk.conditions["condition"] and ec_en_ssk.conditions["condition"]["value"] != None) else " "
+        cond_reg = (ec_en_reg.conditions["condition"]["value"])[0:13] if ("value" in ec_en_reg.conditions["condition"] and ec_en_reg.conditions["condition"]["value"] != None) else " "
+        cond_wht = (ec_en_wht.conditions["condition"]["value"])[0:13] if ("value" in ec_en_wht.conditions["condition"] and ec_en_wht.conditions["condition"]["value"] != None) else " "
+        
+        # create 8 lines of text    
+        s1=(real_forecast_date.upper()).center(35," ")
+        s2="VICTORIA    " + temp_vic.rjust(5," ") + " C     "
+        s2= s2[0:20] + word_short(cond_vic,13)[0:13]
+        s3="VANCOUVER   " + temp_van.rjust(5," ") + " C     "
+        s3= s3[0:20] + word_short(cond_van,13)[0:13]
+        s4="EDMONTON    " + temp_edm.rjust(5," ") + " C     "
+        s4= s4[0:20] + word_short(cond_edm,13)[0:13]
+        s5="CALGARY     " + temp_cal.rjust(5," ") + " C     "
+        s5= s5[0:20] + word_short(cond_cal,13)[0:13]
+        s6="SASKATOON   " + temp_ssk.rjust(5," ") + " C     "
+        s6= s6[0:20] + word_short(cond_ssk,13)[0:13]
+        s7="REGINA      " + temp_reg.rjust(5," ") + " C     "
+        s7= s7[0:20] + word_short(cond_reg,13)[0:13]
+        s8="WHITEHORSE  " + temp_wht.rjust(5," ") + " C     "
+        s8= s8[0:20] + word_short(cond_wht,13)[0:13]
+             
+    elif (PageNum == 8):   
+    
+        # ===================== Screen 8 =====================
+        # Eastern Canada Temperatures & Conditions       
+        #print(time.strftime("%H:%M.") + prog + ver + ".WEATHER_PAGE-display page " + str(PageNum))    
+        
+        day = days[datetime.datetime.today().weekday()]
+        month = str(months[(ec_en_wpg.forecast_time.month)])         
+        daynum = str(ec_en_wpg.forecast_time.day)
+        year = str(ec_en_wpg.forecast_time.year)
+ 
+        temp_tor = str(ec_en_tor.conditions["temperature"]["value"])
+        temp_otw = str(ec_en_otw.conditions["temperature"]["value"])
+        temp_qbc = str(ec_en_qbc.conditions["temperature"]["value"])    
+        temp_mtl = str(ec_en_mtl.conditions["temperature"]["value"])  
+        temp_frd = str(ec_en_frd.conditions["temperature"]["value"])  
+        temp_hal = str(ec_en_hal.conditions["temperature"]["value"])   
+        temp_stj = str(ec_en_stj.conditions["temperature"]["value"]) 
+
+        cond_tor = (ec_en_tor.conditions["condition"]["value"]) if ("value" in ec_en_tor.conditions["condition"] and ec_en_tor.conditions["condition"]["value"] != None) else " "
+        cond_otw = (ec_en_otw.conditions["condition"]["value"]) if ("value" in ec_en_otw.conditions["condition"] and ec_en_otw.conditions["condition"]["value"] != None) else " "   
+        cond_qbc = (ec_en_qbc.conditions["condition"]["value"]) if ("value" in ec_en_qbc.conditions["condition"] and ec_en_qbc.conditions["condition"]["value"] != None) else " "
+        cond_mtl = (ec_en_mtl.conditions["condition"]["value"]) if ("value" in ec_en_mtl.conditions["condition"] and ec_en_mtl.conditions["condition"]["value"] != None) else " "
+        cond_frd = (ec_en_frd.conditions["condition"]["value"]) if ("value" in ec_en_frd.conditions["condition"] and ec_en_frd.conditions["condition"]["value"] != None) else " "
+        cond_hal = (ec_en_hal.conditions["condition"]["value"]) if ("value" in ec_en_hal.conditions["condition"] and ec_en_hal.conditions["condition"]["value"] != None) else " "
+        cond_stj = (ec_en_stj.conditions["condition"]["value"]) if ("value" in ec_en_stj.conditions["condition"] and ec_en_stj.conditions["condition"]["value"] != None) else " "
+        
+        # create 8 lines of text    
+        s1=(real_forecast_date.upper()).center(35," ")
+        s2="TORONTO     " + temp_tor.rjust(5," ") + " C    "
+        s2= s2[0:20] + word_short(cond_tor,13)[0:13]
+        s3="OTTAWA      " + temp_otw.rjust(5," ") + " C     "
+        s3= s3[0:20] + word_short(cond_otw,13)[0:13]
+        s4="QUEBEC CITY " + temp_qbc.rjust(5," ") + " C     "
+        s4= s4[0:20] + word_short(cond_qbc,13)[0:13]
+        s5="MONTREAL    " + temp_mtl.rjust(5," ") + " C     "
+        s5= s5[0:20] + word_short(cond_mtl,13)[0:13]
+        s6="FREDERICTON " + temp_frd.rjust(5," ") + " C     "
+        s6= s6[0:20] + word_short(cond_frd,13)[0:13]
+        s7="HALIFAX     " + temp_hal.rjust(5," ") + " C     "
+        s7= s7[0:20] + word_short(cond_hal,13)[0:13]
+        s8="ST.JOHN'S   " + temp_stj.rjust(5," ") + " C     "
+        s8= s8[0:20] + word_short(cond_stj,13)[0:13]
+    
+    elif (PageNum == 9):
+        
+        # ===================== Screen 9 =====================
+        # hourly forecast
+        #print(time.strftime("%H:%M.") + prog + ver + ".WEATHER_PAGE-display page " + str(PageNum))   
+ 
+        # get local timezone to show on screen
+        local_tz = datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo
+ 
+        # convert hourly forecast data in 2 hour intervals to lists
+        hrly_period = [ec_en_wpg.hourly_forecasts[0]["period"], ec_en_wpg.hourly_forecasts[2]["period"], ec_en_wpg.hourly_forecasts[4]["period"], ec_en_wpg.hourly_forecasts[6]["period"],
+            ec_en_wpg.hourly_forecasts[8]["period"], ec_en_wpg.hourly_forecasts[10]["period"], ec_en_wpg.hourly_forecasts[12]["period"] ]
+        hrly_temp = [ec_en_wpg.hourly_forecasts[0]["temperature"], ec_en_wpg.hourly_forecasts[2]["temperature"], ec_en_wpg.hourly_forecasts[4]["temperature"], ec_en_wpg.hourly_forecasts[6]["temperature"],
+            ec_en_wpg.hourly_forecasts[8]["temperature"], ec_en_wpg.hourly_forecasts[10]["temperature"], ec_en_wpg.hourly_forecasts[12]["temperature"] ]   
+        hrly_cond= [str(ec_en_wpg.hourly_forecasts[0]["condition"]), str(ec_en_wpg.hourly_forecasts[2]["condition"]), str(ec_en_wpg.hourly_forecasts[4]["condition"]), 
+            str(ec_en_wpg.hourly_forecasts[6]["condition"]), str(ec_en_wpg.hourly_forecasts[8]["condition"]), str(ec_en_wpg.hourly_forecasts[10]["condition"]), 
+            str(ec_en_wpg.hourly_forecasts[12]["condition"]) ]              
+        
+        # convert period to local time
+        hrly_period_local = list(map(lambda x: x.astimezone(), hrly_period))
+
+        # convert conditions to upper caps
+        # hrly_cond_cap = list(map(str.upper, hrly_cond))
+        
+        for i in range(len(hrly_cond)):
+            hrly_cond[i] = word_short(hrly_cond[i],13)
+            
+        
+        # create 8 lines of text           
+        s1 = ("WINNIPEG HOURLY FORECAST").center(35," ")
+        s2 = "" + (str(hrly_period_local[0].strftime("%-I:%M %p"))).rjust(8," ") + " " + str(local_tz) + "  " + (str(hrly_temp[0])).rjust(3," ") + " C  " + hrly_cond[0][0:13]
+        s3 = "" + (str(hrly_period_local[1].strftime("%-I:%M %p"))).rjust(8," ") + " " + str(local_tz) + "  " + (str(hrly_temp[1])).rjust(3," ") + " C  " + hrly_cond[1][0:13]
+        s4 = "" + (str(hrly_period_local[2].strftime("%-I:%M %p"))).rjust(8," ") + " " + str(local_tz) + "  " + (str(hrly_temp[2])).rjust(3," ") + " C  " + hrly_cond[2][0:13]
+        s5 = "" + (str(hrly_period_local[3].strftime("%-I:%M %p"))).rjust(8," ") + " " + str(local_tz) + "  " + (str(hrly_temp[3])).rjust(3," ") + " C  " + hrly_cond[3][0:13]
+        s6 = "" + (str(hrly_period_local[4].strftime("%-I:%M %p"))).rjust(8," ") + " " + str(local_tz) + "  " + (str(hrly_temp[4])).rjust(3," ") + " C  " + hrly_cond[4][0:13]
+        s7 = "" + (str(hrly_period_local[5].strftime("%-I:%M %p"))).rjust(8," ") + " " + str(local_tz) + "  " + (str(hrly_temp[5])).rjust(3," ") + " C  " + hrly_cond[5][0:13]
+        s8 = "" + (str(hrly_period_local[6].strftime("%-I:%M %p"))).rjust(8," ") + " " + str(local_tz) + "  " + (str(hrly_temp[6])).rjust(3," ") + " C  " + hrly_cond[6][0:13]
+    
+    elif (PageNum == 10):
+
+        # ===================== Screen 10 =====================
+        # preciptation page
+        #print(time.strftime("%H:%M.") + prog + ver + ".WEATHER_PAGE-display page " + str(PageNum))        
+    
+        wpg_precip = (str(ec_en_wpg.conditions["pop"]["value"]) + " %") if ec_en_wpg.conditions["pop"] and ec_en_wpg.conditions["pop"]["value"] != None else "NIL"
+        brn_precip = (str(ec_en_brn.conditions["pop"]["value"]) + " %") if ec_en_brn.conditions["pop"] and ec_en_brn.conditions["pop"]["value"] != None else "NIL"
+        tps_precip = (str(ec_en_tps.conditions["pop"]["value"]) + " %") if ec_en_tps.conditions["pop"] and ec_en_tps.conditions["pop"]["value"] != None else "NIL"
+        fln_precip = (str(ec_en_fln.conditions["pop"]["value"]) + " %") if ec_en_fln.conditions["pop"] and ec_en_fln.conditions["pop"]["value"] != None else "NIL"
+        thm_precip = (str(ec_en_thm.conditions["pop"]["value"]) + " %") if ec_en_thm.conditions["pop"] and ec_en_thm.conditions["pop"]["value"] != None else "NIL"
+        chu_precip = (str(ec_en_chu.conditions["pop"]["value"]) + " %") if ec_en_chu.conditions["pop"] and ec_en_chu.conditions["pop"]["value"] != None else "NIL"
+        yest_precip = (str(ec_en_wpg.conditions["precip_yesterday"]["value"]) + " MM") if ec_en_wpg.conditions["precip_yesterday"] and ec_en_wpg.conditions["precip_yesterday"]["value"] != None else "0.0 MM"
+    
+        # create 8 lines of text   
+        s1 = ("MANITOBA PRECIPITATION FORECAST").center(35," ")
+        s2 = "    TODAY WINNIPEG  " + (wpg_precip).rjust(5," ")
+        s3 = "          BRANDON   " + (brn_precip).rjust(5," ")
+        s4 = "          THE PAS   " + (tps_precip).rjust(5," ")
+        s5 = "          FLIN FLON " + (fln_precip).rjust(5," ")
+        s6 = "          THOMPSON  " + (thm_precip).rjust(5," ")
+        s7 = "          CHURCHILL " + (chu_precip).rjust(5," ")
+        s8 = " PREV DAY WINNIPEG  " + (yest_precip).rjust(7," ")
+
+    elif (PageNum == 11):    
+        
+        # ===================== Screen 11 =====================
+        # Free extra page! set PageTotal to 11 to use
+        #print(time.strftime("%H:%M.") + prog + ver + ".WEATHER_PAGE-display page " + str(PageNum))         
+      
+        # create 8 lines of text   
+        s1 = ""
+        s2 = ""
+        s3 = ""
+        s4 = ""
+        s5 = ""
+        s6 = "" 
+        s7 = ""
+        s8 = ""
 
     # create the canvas for middle page text
 
-    weather = Canvas(root, height=270, width=720, bg=weathercol)
-    weather.place(x=0, y=100)
-    weather.config(highlightbackground=weathercol)
+    weather = Canvas(root, height=290, width=720, bg=PageColour)
+    weather.place(x=0, y=95)
+    weather.config(highlightbackground=PageColour)
     
     # place the 8 lines of text
-    weather.create_text(85, 15, anchor='nw', text=s1, font=('VCR OSD Mono', 20, "bold"), fill="white")
-    weather.create_text(85, 45, anchor='nw', text=s2, font=('VCR OSD Mono', 20, "bold"), fill="white")
-    weather.create_text(85, 75, anchor='nw', text=s3, font=('VCR OSD Mono', 20, "bold"), fill="white")
-    weather.create_text(85, 105, anchor='nw', text=s4, font=('VCR OSD Mono', 20, "bold"), fill="white")
-    weather.create_text(85, 135, anchor='nw', text=s5, font=('VCR OSD Mono', 20, "bold"), fill="white")
-    weather.create_text(85, 165, anchor='nw', text=s6, font=('VCR OSD Mono', 20, "bold"), fill="white")
-    weather.create_text(85, 195, anchor='nw', text=s7, font=('VCR OSD Mono', 20, "bold"), fill="white") 
-    weather.create_text(85, 225, anchor='nw', text=s8, font=('VCR OSD Mono', 20, "bold"), fill="white") 
+    weather.create_text(80, 12, anchor='nw', text=s1, font=('VCR OSD Mono', 21, "bold"), fill="white")
+    weather.create_text(80, 49, anchor='nw', text=s2, font=('VCR OSD Mono', 21,), fill="white")
+    weather.create_text(80, 81, anchor='nw', text=s3, font=('VCR OSD Mono', 21,), fill="white")
+    weather.create_text(80, 112, anchor='nw', text=s4, font=('VCR OSD Mono', 21,), fill="white")
+    weather.create_text(80, 145, anchor='nw', text=s5, font=('VCR OSD Mono', 21,), fill="white")
+    weather.create_text(80, 177, anchor='nw', text=s6, font=('VCR OSD Mono', 21,), fill="white")
+    weather.create_text(80, 209, anchor='nw', text=s7, font=('VCR OSD Mono', 21,), fill="white") 
+    weather.create_text(80, 241, anchor='nw', text=s8, font=('VCR OSD Mono', 21,), fill="white") 
     
-    root.after(30000, weather_page) # re-run every 30sec from program launch
+    # Toggle Page Colour between Red & Blue
+    if (PageColour == "#0000A5"): # blue
+        PageColour = "#BC0000" # red
+    else:
+        PageColour = "#0000A5" # blue
+        
+    # Increment Page Number or Reset
+    if (PageNum < PageTotal):
+        PageNum = PageNum + 1
+    elif (PageNum >= PageTotal):
+        PageNum = 1
+    
+    root.after(20000, weather_page, PageColour, PageNum) # re-run every 10sec from program launch
 
-# setup main stuff
+# DEF update weather for all cities
+def weather_update(group):
 
+        global real_forecast_time
+        global real_forecast_date
+        global real_forecast_month
+        global real_forecaste_year
+
+        # used to calculate update time
+        t1 = datetime.datetime.now().timestamp() # record current timestamp
+        timechk = t1 - updt_tstp[group] # compare timestamp vs last update time -- not used for group 0 (initialize mode)
+        
+        if (timechk  > 1800) or (group == 0): #check if 30min has elapsed since last group update, but always allow group 0 updates (initial refresh)
+            # update weather for cities, depending on group number requested. 0 == initial refresh on launch
+            if (group == 0 or group == 1):
+                asyncio.run(ec_en_wpg.update())
+                asyncio.run(ec_en_brn.update()) 
+                asyncio.run(ec_en_thm.update()) 
+                asyncio.run(ec_en_tps.update()) 
+                asyncio.run(ec_en_fln.update()) 
+                asyncio.run(ec_en_chu.update()) 
+                asyncio.run(ec_en_ken.update()) 
+                asyncio.run(ec_en_tby.update())
+                
+                real_forecast_time = time.strftime("%-I %p") # this is used as the forecast time when showing the weather. for some reason the dictionary was always reporting 22:00 for forecast time
+                if real_forecast_time == "12 PM": 
+                    real_forecast_time = "NOON" # just to add some fun
+                real_forecast_date = datetime.datetime.now().strftime("%a %b %d/%Y")# this is used as the forecast time when showing the weather. dictionary from env_canada reports weird (GMT maybe?)
+                    
+                if group == 0:
+                    updt_tstp[1] = datetime.datetime.now().timestamp() # record timestamp to update
+                    updt_tstp[2] = datetime.datetime.now().timestamp() # record timestamp to update
+                    updt_tstp[3] = datetime.datetime.now().timestamp() # record timestamp to update
+                else:
+                    updt_tstp[group] = datetime.datetime.now().timestamp() # record timestamp to update
+                
+            if (group == 0 or group == 2):
+                asyncio.run(ec_en_vic.update()) 
+                asyncio.run(ec_en_van.update()) 
+                asyncio.run(ec_en_edm.update()) 
+                asyncio.run(ec_en_cal.update()) 
+                asyncio.run(ec_en_ssk.update()) 
+                asyncio.run(ec_en_reg.update()) 
+                asyncio.run(ec_en_wht.update()) 
+                
+                real_forecast_date = datetime.datetime.now().strftime("%a %b %d/%Y")# this is used as the forecast time when showing the weather. dictionary from env_canada reports weird (GMT maybe?)
+
+                if group == 0:
+                    updt_tstp[1] = datetime.datetime.now().timestamp() # record timestamp to update
+                    updt_tstp[2] = datetime.datetime.now().timestamp() # record timestamp to update
+                    updt_tstp[3] = datetime.datetime.now().timestamp() # record timestamp to update
+                else:
+                    updt_tstp[group] = datetime.datetime.now().timestamp() # record timestamp to update
+        
+            if (group == 0 or group == 3):
+                asyncio.run(ec_en_tor.update()) 
+                asyncio.run(ec_en_otw.update()) 
+                asyncio.run(ec_en_qbc.update()) 
+                asyncio.run(ec_en_mtl.update()) 
+                asyncio.run(ec_en_frd.update()) 
+                asyncio.run(ec_en_hal.update()) 
+                asyncio.run(ec_en_stj.update()) 
+                
+                real_forecast_date = datetime.datetime.now().strftime("%a %b %d/%Y")# this is used as the forecast time when showing the weather. dictionary from env_canada reports weird (GMT maybe?)
+
+                if group == 0:
+                    updt_tstp[1] = datetime.datetime.now().timestamp() # record timestamp to update
+                    updt_tstp[2] = datetime.datetime.now().timestamp() # record timestamp to update
+                    updt_tstp[3] = datetime.datetime.now().timestamp() # record timestamp to update
+                else:
+                    updt_tstp[group] = datetime.datetime.now().timestamp() # record timestamp to update
+
+            # calculate time it took to update
+            t = datetime.datetime.now().timestamp() - t1 # used to report how long update took for debug print lines
+            print(time.strftime("%H:%M.") + prog + ver + ".WEATHER_UPDATE-weather group " + str(group) + " updated in " + str(round(t,2)) + " seconds")
+        else:
+            print(time.strftime("%H:%M.") + prog + ver + ".WEATHER_UPDATE-weather group " + str(group) + " not updated. only ~" + str(round(timechk//60)) + " minutes elapsed out of required 30")
+
+# DEF bottom marquee scrolling text
+def bottom_marquee(grouptotal):
+
+    group = 1
+
+    # scrolling text canvas
+    marquee = Canvas(root, height=120, width=580, bg="green")
+    marquee.config(highlightbackground="green")
+    marquee.place(x=80, y=390)
+
+    # read in RSS data and prepare it
+    width = 35
+    pad = ""
+    for r in range(width): #create an empty string of 35 characters
+        pad = pad + " " 
+
+    url = "https://winnipeg.ca/interhom/RSS/RSSNewsTopTen.xml"
+    wpg = feedparser.parse(url)
+    print(time.strftime("%H:%M.") + prog + ver + ".BOTTOM_MARQUEE-RSS feed refreshed")
+
+    # use the first 8 entries on the wpg news RSS feed
+    wpg_desc = wpg.entries[0]["description"] + pad + wpg.entries[1]["description"] + pad + wpg.entries[2]["description"] + pad + wpg.entries[3]["description"] + pad + wpg.entries[4]["description"] + pad + wpg.entries[5]["description"] + pad + wpg.entries[6]["description"] + pad + wpg.entries[7]["description"]
+    mrq_msg = wpg_desc.upper()
+
+    # use the length of the news feeds to determine the total pixels in the scrolling section
+    marquee_length = len(mrq_msg)
+    if (marquee_length * 24)<31000:
+        pixels = marquee_length * 24 # roughly 24px per char
+    else:
+        pixels = 31000
+
+    # setup scrolling text
+    text = marquee.create_text(1, 2, anchor='nw', text=pad + mrq_msg + pad + pad, font=('VCR OSD Mono', 25,), fill="white")
+
+    restart_marquee = True # 
+    while restart_marquee:
+        restart_marquee = False
+        print(time.strftime("%H:%M.") + prog + ver + ".BOTTOM_MARQUEE-starting RSS display")
+        for p in range(pixels+730):
+            marquee.move(text, -1, 0) #shift the canvas to the left by 1 pixel
+            marquee.update()
+            time.sleep(0.005) # scroll every 5ms
+            if (p == pixels+729): # once the canvas has finished scrolling
+                restart_marquee = True
+                marquee.move(text, pixels+729, 0) # reset the location
+                if (group <= grouptotal):
+                    print(time.strftime("%H:%M.") + prog + ver + ".BOTTOM_MARQUEE-refreshing weather info")
+                    weather_update(group) # update weather information between RSS scrolls
+                    print(time.strftime("%H:%M.") + prog + ver + ".BOTTOM_MARQUEE-weather info refreshed")
+                    group = group + 1
+                else:
+                    print(time.strftime("%H:%M.") + prog + ver + ".BOTTOM_MARQUEE-refreshing weather info")
+                    group = 1
+                    weather_update(group) # update weather information between RSS scrolls
+                    print(time.strftime("%H:%M.") + prog + ver + ".BOTTOM_MARQUEE-weather info refreshed")
+                    group = group + 1
+                    
+                p = 0 # keep the for loop from ending
+
+# DEF generate playlist from folder
+def playlist_generator(musicpath):
+
+    # this code from https://thispointer.com/python-how-to-get-list-of-files-in-directory-and-sub-directories/
+    # create a list of file and sub directories 
+    # names in the given directory 
+
+    print(time.strftime("%H:%M.") + prog + ver + ".PLAYLIST_GENERATOR-searching for music files...")
+    filelist = os.listdir(musicpath)
+    allFiles = list()
+    # Iterate over all the entries    
+    for entry in filelist:
+        # Create full path
+        fullPath = os.path.join(musicpath,entry)
+        # If entry is a directory then get the list of files in this directory 
+        if os.path.isdir(fullPath):
+            allFiles = allFiles + playlist_generator(fullPath)
+        else:
+            allFiles.append(fullPath)
+    print(time.strftime("%H:%M.") + prog + ver + ".PLAYLIST_GENERATOR-found " + str(len(allFiles)))
+    return allFiles
+
+# DEF play background music
+def music_player(songNumber, playlist, musicpath):
+
+    # make sure musicpath ONLY contains playable mp3 files. this does not check if files are valid and will crash if it tries to play something else
+
+    if ((pygame.mixer.music.get_busy() == False) and (songNumber < len(playlist))):
+        print(time.strftime("%H:%M.") + prog + ver + ".MUSIC_PLAYER-playing song " + playlist[songNumber])  
+        pygame.mixer.music.load(playlist[songNumber])
+        pygame.mixer.music.play(loops = 0)
+        songNumber = songNumber + 1
+    elif ((pygame.mixer.music.get_busy() == False) and (songNumber >= len(playlist))):
+        print(time.strftime("%H:%M.") + prog + ver + ".MUSIC_PLAYER-playlist complete,re-shuffling... ")
+        songNumber = 0
+        random.shuffle(playlist)   
+
+    root.after(2000, music_player, songNumber, playlist, musicpath) # re-run every 2sec from program launch
+
+# DEF Word Shortner 5000
+def word_short(phrase, length):
+    
+    # dictionary of shortened words
+    dict = {                    
+        "BECOMING" : "BCMG",
+        "SCATTERED" : "SCTD",
+        "PARTLY" : "PTLY",
+        "SHOWER" : "SHWR",
+        "CLOUDY" : "CLDY",
+        "DRIZZLE" : "DRZLE",
+        "FREEZING" : "FRZG",
+        "THUNDERSHOWER" : "THNDSHR",
+        "THUNDERSTORM" : "THNDSTM",
+        "PRECIPITATION" : "PRECIP",
+        "CHANCE" : "CHNCE",
+        "DEVELOPING" : "DVLPNG",
+        "WITH" : "W",
+        "SHOWER" : "SHWR",
+        "LIGHT" : "LT",
+        "HEAVY" : "HVY",
+        "BLOWING" : "BLWNG"
+    }
+    
+    phrase = phrase.upper() # convert to upper case for convenience and for later
+    
+    if len(phrase) > length:    # check if phrase is too long
+        
+        if phrase == "A MIX OF SUN AND CLOUD":  # just for this specific condition
+            phrase = "SUN CLOUD MIX"
+        
+        for key, value in dict.items():     # replace words using dictionary dict
+            phrase = (re.sub(key, value, phrase))  
+            
+        #print(prog + ver + ".WORD_SHORT-phrase shortened to " + phrase)
+        return phrase
+        
+    else:
+        return phrase       # if length is fine, do nothing and send it back
+
+# ROOT main stuff
+
+# setup root
 root = Tk()
 root.attributes('-fullscreen',True)
-root.geometry("720x480")
+root.geometry("720x480") # this must be 720x480 for a proper filled out screen on composite output. 640x480 will have black bar on RH side. use 720x576 for PAL.
 root.config(cursor="none", bg="green")
-root.wm_title("wpg-weatherchan_V0.0.17")
+root.wm_title("wpg-weatherchan")
 
 # Clock - Top RIGHT
-
-timeText = Label(root, text="", font=("VCR OSD Mono", 36), fg="white", bg="green")
-timeText.place(x=425, y=40)
+# this got complicated due to the new font (7-Segment Normal), which doesn't have proper colon(:) char, 
+# so I've removed the colon from the time string and added them on top using VCR OSD Mono
+print(time.strftime("%H:%M.") + prog + ver + ".ROOT-placing clock")
+timeText = Label(root, text="", font=("7-Segment Normal", 22), fg="white", bg="green")
+timeText.place(x=403, y=42)
+timeColon1 = Label(root, text=":", font=("VCR OSD Mono", 32), fg="white", bg="green")
+timeColon1.place(x=465, y=36)
+timeColon2 = Label(root, text=":", font=("VCR OSD Mono", 32), fg="white", bg="green")
+timeColon2.place(x=560, y=36)
+print(time.strftime("%H:%M.") + prog + ver + ".ROOT-launching clock updater")
 clock()
 
 # Title - Top LEFT
+print(time.strftime("%H:%M.") + prog + ver + ".ROOT-placing Title Text")
+Title = Label(root, text="ENVIRONMENT CANADA", font=("VCR OSD Mono", 22, "bold"), fg="white", bg="green")
+Title.place(x=80, y=50)
 
-Title = Label(root, text="ENVIRONMENT CANADA", font=("VCR OSD Mono", 22), fg="white", bg="green")
-Title.place(x=80, y=55)
+# use ECWeather to gather weather data, station_id is from the csv file provided with ECDada -- homepage: https://github.com/michaeldavie/env_canada
 
-# use ECData to gather weather data, station_id is from the csv file provided with ECDada -- homepage: https://github.com/michaeldavie/env_canada
+# group 1
+ec_en_wpg = ECWeather(station_id='MB/s0000193', language='english')
+ec_en_brn = ECWeather(station_id='MB/s0000492', language='english')
+ec_en_thm = ECWeather(station_id='MB/s0000695', language='english')
+ec_en_tps = ECWeather(station_id='MB/s0000644', language='english')
+ec_en_chu = ECWeather(station_id='MB/s0000779', language='english')
+ec_en_fln = ECWeather(station_id='MB/s0000015', language='english')
+ec_en_ken = ECWeather(station_id='ON/s0000651', language='english')
+ec_en_tby = ECWeather(station_id='ON/s0000411', language='english')
 
-ec_en = ECData(station_id='MB/s0000193', language='english')
-ec_en.update()
+# group 2
+ec_en_vic = ECWeather(station_id='BC/s0000775', language='english')
+ec_en_van = ECWeather(station_id='BC/s0000141', language='english')
+ec_en_edm = ECWeather(station_id='AB/s0000045', language='english')
+ec_en_cal = ECWeather(station_id='AB/s0000047', language='english')
+ec_en_ssk = ECWeather(station_id='SK/s0000797', language='english')
+ec_en_reg = ECWeather(station_id='SK/s0000788', language='english')
+ec_en_wht = ECWeather(station_id='YT/s0000825', language='english')
+
+# group 3
+ec_en_tor = ECWeather(station_id='ON/s0000458', language='english')
+ec_en_otw = ECWeather(station_id='ON/s0000430', language='english')
+ec_en_mtl = ECWeather(station_id='QC/s0000635', language='english')
+ec_en_qbc = ECWeather(station_id='QC/s0000620', language='english')
+ec_en_frd = ECWeather(station_id='NB/s0000250', language='english')
+ec_en_hal = ECWeather(station_id='NS/s0000318', language='english')
+ec_en_stj = ECWeather(station_id='NL/s0000280', language='english')
+
+# total number of groups broken up to update sections of weather data, to keep update time short
+grouptotal = 3 
+
+# create time check updated list for weather_udpdate
+updt_tstp = [0,0,0,0]
+
+# create string to store hour that weather was updated. Use this to show "forecast time" since ec_en_wpg.forecast_time always reports the same time!! Date is also weird
+real_forecast_time = ""
+real_forecast_date = ""
+
+# Update Weather Information
+print(time.strftime("%H:%M.") + prog + ver + ".ROOT-launching weather update")
+weather_update(0) # update all cities
 
 # Middle Section (Cycling weather pages, every 30sec)
+print(time.strftime("%H:%M.") + prog + ver + ".ROOT-launching weather_page")
+PageColour = "Blue"
+PageNum = 1
+weather_page(PageColour, PageNum)
 
-weather_page()
+# Generate background music playlist
+print(time.strftime("%H:%M.") + prog + ver + ".ROOT-launching playlist generator")
+musicpath = "/home/probnot/WeatherPi/music" # must show full path
+playlist = playlist_generator(musicpath) # generate playlist array
+random.shuffle(playlist) # shuffle playlist
 
-# scrolling text canvas
+# Play background music on shuffle using pygame
+print(time.strftime("%H:%M.") + prog + ver + ".ROOT-launching background music")
+songNumber = 1
+pygame.mixer.init()
+music_player(songNumber, playlist, musicpath)
 
-marquee = Canvas(root, height=120, width=580, bg="green")
-marquee.config(highlightbackground="green")
-marquee.place(x=80, y=375)
+# Bottom Scrolling Text (City of Winnipeg RSS Feed)
+print(time.strftime("%H:%M.") + prog + ver + ".ROOT-launching bottom_marquee")
+bottom_marquee(grouptotal)
 
-# read in RSS data and prepare it
-
-width = 35
-pad = ""
-for r in range(width): #create an empty string of 35 characters
-    pad = pad + " " 
-
-url = "https://winnipeg.ca/interhom/RSS/RSSNewsTopTen.xml"
-wpg = feedparser.parse(url)
-
-# use the first 8 entries on the wpg news RSS feed
-wpg_desc = wpg.entries[0]["description"] + pad + wpg.entries[1]["description"] + pad + wpg.entries[2]["description"] + pad + wpg.entries[3]["description"] + pad + wpg.entries[4]["description"] + pad + wpg.entries[5]["description"] + pad + wpg.entries[6]["description"] + pad + wpg.entries[7]["description"]
-mrq_msg = wpg_desc.upper()
-
-# use the length of the news feeds to determine the total pixels in the scrolling section
-marquee_length = len(mrq_msg)
-if (marquee_length * 24)<31000:
-    pixels = marquee_length * 24 # roughly 24px per char
-else:
-    pixels = 31000
-
-# setup scrolling text
-
-text = marquee.create_text(1, 2, anchor='nw', text=pad + mrq_msg + pad + pad, font=('VCR OSD Mono', 25,), fill="white")
-
-restart_marquee = True # 
-while restart_marquee:
-    restart_marquee = False
-    for p in range(pixels+601):
-        marquee.move(text, -1, 0) #shift the canvas to the left by 1 pixel
-        marquee.update()
-        time.sleep(0.005) # scroll every 5ms
-        if (p == pixels+600): # once the canvas has finished scrolling
-            restart_marquee = True
-            marquee.move(text, pixels+600, 0) # reset the location
-            p = 0 # keep the for loop from ending
-    
+# loop program  
 root.mainloop()
