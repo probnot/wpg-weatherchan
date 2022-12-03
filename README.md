@@ -8,7 +8,7 @@ This was written in Python 3.x
 This uses 'ECData' from env_canada to get the weather data from Environment Canada. It can be found here: (https://github.com/michaeldavie/env_canada). 
 It also uses the fonts VCR OSD Mono (https://www.dafont.com/vcr-osd-mono.font) and 7-Segment Normal (https://blogfonts.com/7-segment-normal.font).
 
-It was tested on a Raspberry Pi 3 running Raspberry Pi OS (full w/desktop). I recommend at the 3 or higher. Because it uses tkinter, it must be launched from the GUI in raspbian. I recommend disabling screenblank, and turning on overscan for best results.
+It was tested on a Raspberry Pi 3 running Raspberry Pi OS (full w/desktop). I recommend the model 3 or higher. Because it uses tkinter, it must be launched from the GUI in raspbian. I recommend disabling screenblank, and turning on overscan for best results.
 
 The Composite video output in the Raspberry Pi runs at 720x480, so I recommend setting the display to this and not 640x480 (which added a black bar on the side for me).
 
