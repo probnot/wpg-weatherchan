@@ -14,11 +14,14 @@ The Composite video output in the Raspberry Pi runs at 720x480, so I recommend s
 
 If you're launching this from an SSH session, I recommend doing so through a script file with the following:
 >export DISPLAY=:0.0
+>
 >python3 wpg-weatherchan.py
 
 To launch automatically, create a file in /etc/xdg/autostart/ called "display.desktop" with the following contents (replace my filepath with whatever your location is):
 >[Desktop Entry]
+>
 >Name=WeatherPi
+>
 >Exec=/usr/bin/python3 /home/probnot/WeatherPi/wpg-weatherchan.py
 
 ## License
