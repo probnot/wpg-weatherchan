@@ -1,6 +1,9 @@
 # wpg-weatherchan
 This creates the old-school looking weather channel that was common on Winnipeg cable TV into the 1990s.
 
+![Example of the result, captured from the analog video output](https://github.com/probnot/wpg-weatherchan/blob/V2/image1.jpg?raw=true)
+![Example of the result, captured from the analog video output](https://github.com/probnot/wpg-weatherchan/blob/V2/image2.jpg?raw=true)
+
 ## Usage
 
 This was written in Python 3.x
