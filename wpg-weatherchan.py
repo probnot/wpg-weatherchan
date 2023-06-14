@@ -4,6 +4,7 @@
 from tkinter import *
 import time
 import datetime
+# from datetime import datetime
 import asyncio # for env_canada
 import textwrap # used to format forecast text
 from env_canada import ECWeather
@@ -16,7 +17,12 @@ import os # for background music
 import re # for word shortener
 
 prog = "wpg-weather."
-ver = "2.0.1"
+ver = "2.0.4"
+# 2.0.4 [2023-06-06]
+# - Line 89 humidex typo
+# - Line 203 fixed high/low yesterday temp - added check for nonetype
+# 2.0.3
+# - Updated channel listings
 # 2.0.1
 # - Changed forecast time to use current time when updating weather - the date and time from forecast_time in env_canada returns odd results
 # - Changed UV INDEX to show -- instead of blank if no index is present
@@ -40,7 +46,7 @@ def weather_page(PageColour, PageNum):
     months = [" ", "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]    
     linebreak = ['\n']
 
-    PageTotal = 10
+    PageTotal = 13
 
     if (PageNum == 1):
         
@@ -83,7 +89,7 @@ def weather_page(PageColour, PageNum):
             windchill = str(ec_en_wpg.conditions["wind_chill"]["value"])
             windchildex = "WIND CHILL " + windchill + " C"
         elif ("value" in ec_en_wpg.conditions["humidex"] and ec_en_wpg.conditions["humidex"]["value"] != None):
-            humidex = str(windchill = ec_en_wpg.conditions["humidex"]["value"])
+            humidex = str(ec_en_wpg.conditions["humidex"]["value"])
             windchildex = "HUMIDEX " + humidex + " C       "
         else:
             windchildex = ""
@@ -195,8 +201,17 @@ def weather_page(PageColour, PageNum):
         temp_cur = str(ec_en_wpg.conditions["temperature"]["value"]) 
         temp_high = str(ec_en_wpg.conditions["high_temp"]["value"])
         temp_low = str(ec_en_wpg.conditions["low_temp"]["value"])
-        temp_yest_high =str(round(ec_en_wpg.conditions["high_temp_yesterday"]["value"]))
-        temp_yest_low =str(round(ec_en_wpg.conditions["low_temp_yesterday"]["value"]))
+       
+        if ("value" in ec_en_wpg.conditions["high_temp_yesterday"] and ec_en_wpg.conditions["high_temp_yesterday"]["value"] != None):    
+            temp_yest_high =str(round(ec_en_wpg.conditions["high_temp_yesterday"]["value"]))
+        else:
+            temp_yest_high = ""
+        
+        if ("value" in ec_en_wpg.conditions["low_temp_yesterday"] and ec_en_wpg.conditions["low_temp_yesterday"]["value"] != None):    
+            temp_yest_low =str(round(ec_en_wpg.conditions["low_temp_yesterday"]["value"]))
+        else:
+            temp_yest_low = ""       
+        
         temp_norm_high =str(ec_en_wpg.conditions["normal_high"]["value"])
         temp_norm_low =str(ec_en_wpg.conditions["normal_low"]["value"])      
 
@@ -407,18 +422,51 @@ def weather_page(PageColour, PageNum):
     elif (PageNum == 11):    
         
         # ===================== Screen 11 =====================
-        # Free extra page! set PageTotal to 11 to use
+        # static channel listing page 1
+        #print(time.strftime("%H:%M.") + prog + ver + ".WEATHER_PAGE-display page " + str(PageNum))         
+      
+        # create 8 lines of text
+        s1 = "==========CHANNEL LISTING=========="
+        s2 = ""
+        s3 = "2    The Simpsons   [ANALOG]"    
+        s4 = "3.1  CBC-Fr(CBWFT)  [DIGITAL-HD]" 
+        s5 = "6    60s TV Shows   [ANALOG]"         
+        s6 = "6.1  CBC    (CBWT)  [DIGITAL-HD]"
+        s7 = "7.1  CTV     (CKY)  [DIGITAL-HD]"
+        s8 = "9.1  GLOBAL (CKND)  [DIGITAL-HD]"
+
+    elif (PageNum == 12):    
+        
+        # ===================== Screen 12 =====================
+        # static channel listing page 2
         #print(time.strftime("%H:%M.") + prog + ver + ".WEATHER_PAGE-display page " + str(PageNum))         
       
         # create 8 lines of text   
-        s1 = ""
+        s1 = "=======CHANNEL LISTING CONT'D======="
+        s2 = ""      
+        s3 = "10   CBC    (CBWT)  [ANALOG]" 
+        s4 = "13.1 CITY-TV(CHMI)  [DIGITAL-HD]"
+        s5 = "14   Cartoons       [ANALOG]"       
+        s6 = "16   80s Sitcoms    [ANALOG]"
+        s7 = "22   90s Sitcoms    [ANALOG]"
+        s8 = "24   GLOBAL (CKND)  [ANALOG]" 
+
+        
+    elif (PageNum == 13):    
+        
+        # ===================== Screen 13 =====================
+        # static channel listing page 3
+        #print(time.strftime("%H:%M.") + prog + ver + ".WEATHER_PAGE-display page " + str(PageNum))         
+      
+        # create 8 lines of text   
+        s1 = "=======CHANNEL LISTING CONT'D======="   
         s2 = ""
-        s3 = ""
-        s4 = ""
-        s5 = ""
-        s6 = "" 
+        s3 = "30   Music Videos   [ANALOG-ST]"   
+        s4 = "35.1 FAITH  (CIIT)  [DIGITAL-HD]"
+        s5 = "50   British TV     [ANALOG]"    
+        s6 = "54   WEATHER        [ANALOG]"
         s7 = ""
-        s8 = ""
+        s8 = "             ©ßÖRTHØLÈ CABLE SYSTEMS"        
 
     # create the canvas for middle page text
 
@@ -448,7 +496,7 @@ def weather_page(PageColour, PageNum):
     elif (PageNum >= PageTotal):
         PageNum = 1
     
-    root.after(20000, weather_page, PageColour, PageNum) # re-run every 10sec from program launch
+    root.after(15000, weather_page, PageColour, PageNum) # re-run every 10sec from program launch
 
 # DEF update weather for all cities
 def weather_update(group):
@@ -473,7 +521,6 @@ def weather_update(group):
                 asyncio.run(ec_en_chu.update()) 
                 asyncio.run(ec_en_ken.update()) 
                 asyncio.run(ec_en_tby.update())
-                
                 real_forecast_time = time.strftime("%-I %p") # this is used as the forecast time when showing the weather. for some reason the dictionary was always reporting 22:00 for forecast time
                 if real_forecast_time == "12 PM": 
                     real_forecast_time = "NOON" # just to add some fun
@@ -494,9 +541,7 @@ def weather_update(group):
                 asyncio.run(ec_en_ssk.update()) 
                 asyncio.run(ec_en_reg.update()) 
                 asyncio.run(ec_en_wht.update()) 
-                
                 real_forecast_date = datetime.datetime.now().strftime("%a %b %d/%Y")# this is used as the forecast time when showing the weather. dictionary from env_canada reports weird (GMT maybe?)
-
                 if group == 0:
                     updt_tstp[1] = datetime.datetime.now().timestamp() # record timestamp to update
                     updt_tstp[2] = datetime.datetime.now().timestamp() # record timestamp to update
@@ -512,9 +557,7 @@ def weather_update(group):
                 asyncio.run(ec_en_frd.update()) 
                 asyncio.run(ec_en_hal.update()) 
                 asyncio.run(ec_en_stj.update()) 
-                
                 real_forecast_date = datetime.datetime.now().strftime("%a %b %d/%Y")# this is used as the forecast time when showing the weather. dictionary from env_canada reports weird (GMT maybe?)
-
                 if group == 0:
                     updt_tstp[1] = datetime.datetime.now().timestamp() # record timestamp to update
                     updt_tstp[2] = datetime.datetime.now().timestamp() # record timestamp to update
