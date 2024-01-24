@@ -16,11 +16,27 @@ import random # for background music
 import os # for background music
 import re # for word shortener
 
-prog = "wpg-weather."
-ver = "2.0.4"
+prog = "wpg-weather"
+ver = "2.0.8"
+# 2.0.8 [2024-01-20]
+#   BUGFIX:
+# - Added try functions to weather update (line 610 & 619) to prevent crashing once running - program will still crash if weather update fails on initial launch
+# - Updated RSS feed URL to use CTV News (Thanks Tekhnocyte!)
+# - Added code in screen 4 to avoid colour not changing if page is skipped
+# - moved print/debug messages to new function debug_msg. Can enable/disable, select verbosity, add datestamp
+#   IMPROVEMENT/MISC:
+# - Updated channel listings on page 11 / removed pages 12 and 13
+# - Increased vertical size of center page / moved text locations
+# - Changed red colour from 0xBC0000 to 0x6D0000, changed blue colour from 0x0000A5 to 0x00006D (better visibility on b&w TVs)
+# - Increased time between page changes to 20sec (was 10sec)
+# 2.0.7 [2023-09-11]
+# - Updated CityofWinnipeg RSS feed URL (old URL 404)
+# 2.0.6 [2023-09-02]
+# - Updated channel listings
+# 2.0.5 - Skipped
 # 2.0.4 [2023-06-06]
 # - Line 89 humidex typo
-# - Line 203 fixed high/low yesterday temp - added check for nonetype
+# - Line 203 fixed high/low yesterday temp - added check for nonetype   
 # 2.0.3
 # - Updated channel listings
 # 2.0.1
@@ -46,13 +62,13 @@ def weather_page(PageColour, PageNum):
     months = [" ", "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]    
     linebreak = ['\n']
 
-    PageTotal = 13
+    PageTotal = 11
 
     if (PageNum == 1):
         
         # ===================== Screen 1 =====================
         # Today's day/date + specific weather conditions
-        #print(time.strftime("%H:%M.") + prog + ver + ".WEATHER_PAGE-display page " + str(PageNum))            
+        debug_msg(("WEATHER_PAGE-display page " + str(PageNum)),2)             
         
         # get local timezone to show on screen
         local_tz = datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo
@@ -127,7 +143,7 @@ def weather_page(PageColour, PageNum):
     
         # ===================== Screen 2 =====================
         # text forecast for 5 days - page 1 of 3
-        #print(time.strftime("%H:%M.") + prog + ver + ".WEATHER_PAGE-display page " + str(PageNum))   
+        debug_msg(("WEATHER_PAGE-display page " + str(PageNum)),2)  
 
         # pull text forecasts from env_canada
         wsum_day1 = textwrap.wrap(ec_en_wpg.conditions["text_summary"]["value"].upper(), 35)
@@ -156,7 +172,7 @@ def weather_page(PageColour, PageNum):
         # ===================== Screen 3 =====================
         # text forecast for 5 days - page 2 of 3
         # Screen 1 must run first as it sets up variables
-        #print(time.strftime("%H:%M.") + prog + ver + ".WEATHER_PAGE-display page " + str(PageNum))    
+        debug_msg(("WEATHER_PAGE-display page " + str(PageNum)),2) 
         
         # create 8 lines of text
         s1 = "WINNIPEG CITY FORECAST CONT'D".center(35," ")
@@ -172,14 +188,18 @@ def weather_page(PageColour, PageNum):
  
         # ===================== Screen 4 =====================
         # text forecast for 5 days - page 3 of 3 -- optional
-        # Screen 1 must run first as it sets up variables        
+        # Screen 1 must run first as it sets up variables   
         
         # check if this page is needed
         if len(text_forecast) <= 14:
-            #print(time.strftime("%H:%M.") + prog + ver + ".WEATHER_PAGE-display page " + str(PageNum) + " skipped!") 
+            debug_msg(("WEATHER_PAGE-display page " + str(PageNum) + " skipped!"),2)
             PageNum = PageNum + 1 #skip this page
+            if (PageColour == "#0000A5"): # blue
+                PageColour = "#6D0000" # red
+            else:
+                PageColour = "#0000A5" # blue 
         else:
-            #print(time.strftime("%H:%M.") + prog + ver + ".WEATHER_PAGE-display page " + str(PageNum))    
+            debug_msg(("WEATHER_PAGE-display page " + str(PageNum)),2)   
         
             # create 8 lines of text       
             s1 = "WINNIPEG CITY FORECAST CONT'D".center(35," ")
@@ -195,7 +215,7 @@ def weather_page(PageColour, PageNum):
     
         # ===================== Screen 5 =====================
         # Weather States
-        #print(time.strftime("%H:%M.") + prog + ver + ".WEATHER_PAGE-display page " + str(PageNum))            
+        debug_msg(("WEATHER_PAGE-display page " + str(PageNum)),2)        
  
         # weather data 
         temp_cur = str(ec_en_wpg.conditions["temperature"]["value"]) 
@@ -229,7 +249,7 @@ def weather_page(PageColour, PageNum):
     
         # ===================== Screen 6 =====================
         # Manitoba and Regional Temperatures & Conditions
-        #print(time.strftime("%H:%M.") + prog + ver + ".WEATHER_PAGE-display page " + str(PageNum))    
+        debug_msg(("WEATHER_PAGE-display page " + str(PageNum)),2)
 
         day = days[datetime.datetime.today().weekday()]
         month = str(months[(ec_en_wpg.forecast_time.month)])         
@@ -273,7 +293,7 @@ def weather_page(PageColour, PageNum):
     
         # ===================== Screen 7 =====================
         # Western Canada Temperatures & Conditions       
-        #print(time.strftime("%H:%M.") + prog + ver + ".WEATHER_PAGE-display page " + str(PageNum))    
+        debug_msg(("WEATHER_PAGE-display page " + str(PageNum)),2) 
         
         day = days[datetime.datetime.today().weekday()]
         month = str(months[(ec_en_wpg.forecast_time.month)])         
@@ -317,7 +337,7 @@ def weather_page(PageColour, PageNum):
     
         # ===================== Screen 8 =====================
         # Eastern Canada Temperatures & Conditions       
-        #print(time.strftime("%H:%M.") + prog + ver + ".WEATHER_PAGE-display page " + str(PageNum))    
+        debug_msg(("WEATHER_PAGE-display page " + str(PageNum)),2)
         
         day = days[datetime.datetime.today().weekday()]
         month = str(months[(ec_en_wpg.forecast_time.month)])         
@@ -361,7 +381,7 @@ def weather_page(PageColour, PageNum):
         
         # ===================== Screen 9 =====================
         # hourly forecast
-        #print(time.strftime("%H:%M.") + prog + ver + ".WEATHER_PAGE-display page " + str(PageNum))   
+        debug_msg(("WEATHER_PAGE-display page " + str(PageNum)),2)
  
         # get local timezone to show on screen
         local_tz = datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo
@@ -399,7 +419,7 @@ def weather_page(PageColour, PageNum):
 
         # ===================== Screen 10 =====================
         # preciptation page
-        #print(time.strftime("%H:%M.") + prog + ver + ".WEATHER_PAGE-display page " + str(PageNum))        
+        debug_msg(("WEATHER_PAGE-display page " + str(PageNum)),2)        
     
         wpg_precip = (str(ec_en_wpg.conditions["pop"]["value"]) + " %") if ec_en_wpg.conditions["pop"] and ec_en_wpg.conditions["pop"]["value"] != None else "NIL"
         brn_precip = (str(ec_en_brn.conditions["pop"]["value"]) + " %") if ec_en_brn.conditions["pop"] and ec_en_brn.conditions["pop"]["value"] != None else "NIL"
@@ -422,71 +442,40 @@ def weather_page(PageColour, PageNum):
     elif (PageNum == 11):    
         
         # ===================== Screen 11 =====================
-        # static channel listing page 1
-        #print(time.strftime("%H:%M.") + prog + ver + ".WEATHER_PAGE-display page " + str(PageNum))         
+        # custom/extra page - currently used for my channel listing
+        # to disable this page, set PageTotal to 10
+        debug_msg(("WEATHER_PAGE-display page " + str(PageNum)),2)         
       
         # create 8 lines of text
+
         s1 = "==========CHANNEL LISTING=========="
-        s2 = ""
-        s3 = "2    The Simpsons   [ANALOG]"    
-        s4 = "3.1  CBC-Fr(CBWFT)  [DIGITAL-HD]" 
-        s5 = "6    60s TV Shows   [ANALOG]"         
-        s6 = "6.1  CBC    (CBWT)  [DIGITAL-HD]"
-        s7 = "7.1  CTV     (CKY)  [DIGITAL-HD]"
-        s8 = "9.1  GLOBAL (CKND)  [DIGITAL-HD]"
-
-    elif (PageNum == 12):    
-        
-        # ===================== Screen 12 =====================
-        # static channel listing page 2
-        #print(time.strftime("%H:%M.") + prog + ver + ".WEATHER_PAGE-display page " + str(PageNum))         
-      
-        # create 8 lines of text   
-        s1 = "=======CHANNEL LISTING CONT'D======="
-        s2 = ""      
-        s3 = "10   CBC    (CBWT)  [ANALOG]" 
-        s4 = "13.1 CITY-TV(CHMI)  [DIGITAL-HD]"
-        s5 = "14   Cartoons       [ANALOG]"       
-        s6 = "16   80s Sitcoms    [ANALOG]"
-        s7 = "22   90s Sitcoms    [ANALOG]"
-        s8 = "24   GLOBAL (CKND)  [ANALOG]" 
-
-        
-    elif (PageNum == 13):    
-        
-        # ===================== Screen 13 =====================
-        # static channel listing page 3
-        #print(time.strftime("%H:%M.") + prog + ver + ".WEATHER_PAGE-display page " + str(PageNum))         
-      
-        # create 8 lines of text   
-        s1 = "=======CHANNEL LISTING CONT'D======="   
-        s2 = ""
-        s3 = "30   Music Videos   [ANALOG-ST]"   
-        s4 = "35.1 FAITH  (CIIT)  [DIGITAL-HD]"
-        s5 = "50   British TV     [ANALOG]"    
-        s6 = "54   WEATHER        [ANALOG]"
-        s7 = ""
-        s8 = "             ©ßÖRTHØLÈ CABLE SYSTEMS"        
+        s2 = "  2 SIMPSNS    14 90sTV    62 MUSIC"    
+        s3 = "3.1 CBC FR.    16 TOONS" 
+        s4 = "  6 60s/70s    22 80sTV"         
+        s5 = "6.1 CBC        24 GLOBAL"
+        s6 = "7.1 CTV      35.1 FAITH"
+        s7 = "9.1 GLOBAL     50 COMEDY"
+        s8 = " 10 CBC        54 WEATHR" 
 
     # create the canvas for middle page text
 
-    weather = Canvas(root, height=290, width=720, bg=PageColour)
-    weather.place(x=0, y=95)
+    weather = Canvas(root, height=310, width=720, bg=PageColour)
+    weather.place(x=0, y=85)
     weather.config(highlightbackground=PageColour)
     
     # place the 8 lines of text
-    weather.create_text(80, 12, anchor='nw', text=s1, font=('VCR OSD Mono', 21, "bold"), fill="white")
-    weather.create_text(80, 49, anchor='nw', text=s2, font=('VCR OSD Mono', 21,), fill="white")
-    weather.create_text(80, 81, anchor='nw', text=s3, font=('VCR OSD Mono', 21,), fill="white")
-    weather.create_text(80, 112, anchor='nw', text=s4, font=('VCR OSD Mono', 21,), fill="white")
-    weather.create_text(80, 145, anchor='nw', text=s5, font=('VCR OSD Mono', 21,), fill="white")
-    weather.create_text(80, 177, anchor='nw', text=s6, font=('VCR OSD Mono', 21,), fill="white")
-    weather.create_text(80, 209, anchor='nw', text=s7, font=('VCR OSD Mono', 21,), fill="white") 
-    weather.create_text(80, 241, anchor='nw', text=s8, font=('VCR OSD Mono', 21,), fill="white") 
+    weather.create_text(80, 17, anchor='nw', text=s1, font=('VCR OSD Mono', 21, "bold"), fill="white")
+    weather.create_text(80, 60, anchor='nw', text=s2, font=('VCR OSD Mono', 21,), fill="white")
+    weather.create_text(80, 95, anchor='nw', text=s3, font=('VCR OSD Mono', 21,), fill="white")
+    weather.create_text(80, 130, anchor='nw', text=s4, font=('VCR OSD Mono', 21,), fill="white")
+    weather.create_text(80, 165, anchor='nw', text=s5, font=('VCR OSD Mono', 21,), fill="white")
+    weather.create_text(80, 200, anchor='nw', text=s6, font=('VCR OSD Mono', 21,), fill="white")
+    weather.create_text(80, 235, anchor='nw', text=s7, font=('VCR OSD Mono', 21,), fill="white") 
+    weather.create_text(80, 270, anchor='nw', text=s8, font=('VCR OSD Mono', 21,), fill="white") 
     
     # Toggle Page Colour between Red & Blue
     if (PageColour == "#0000A5"): # blue
-        PageColour = "#BC0000" # red
+        PageColour = "#6D0000" # red
     else:
         PageColour = "#0000A5" # blue
         
@@ -496,7 +485,7 @@ def weather_page(PageColour, PageNum):
     elif (PageNum >= PageTotal):
         PageNum = 1
     
-    root.after(15000, weather_page, PageColour, PageNum) # re-run every 10sec from program launch
+    root.after(20000, weather_page, PageColour, PageNum) # re-run every 20sec from program launch
 
 # DEF update weather for all cities
 def weather_update(group):
@@ -567,9 +556,9 @@ def weather_update(group):
 
             # calculate time it took to update
             t = datetime.datetime.now().timestamp() - t1 # used to report how long update took for debug print lines
-            print(time.strftime("%H:%M.") + prog + ver + ".WEATHER_UPDATE-weather group " + str(group) + " updated in " + str(round(t,2)) + " seconds")
+            debug_msg(("WEATHER_UPDATE-weather group " + str(group) + " updated in " + str(round(t,2)) + " seconds"),1)
         else:
-            print(time.strftime("%H:%M.") + prog + ver + ".WEATHER_UPDATE-weather group " + str(group) + " not updated. only ~" + str(round(timechk//60)) + " minutes elapsed out of required 30")
+            debug_msg(("WEATHER_UPDATE-weather group " + str(group) + " not updated. only ~" + str(round(timechk//60)) + " minutes elapsed out of required 30"),1)
 
 # DEF bottom marquee scrolling text
 def bottom_marquee(grouptotal):
@@ -579,7 +568,7 @@ def bottom_marquee(grouptotal):
     # scrolling text canvas
     marquee = Canvas(root, height=120, width=580, bg="green")
     marquee.config(highlightbackground="green")
-    marquee.place(x=80, y=390)
+    marquee.place(x=80, y=400)
 
     # read in RSS data and prepare it
     width = 35
@@ -587,9 +576,9 @@ def bottom_marquee(grouptotal):
     for r in range(width): #create an empty string of 35 characters
         pad = pad + " " 
 
-    url = "https://winnipeg.ca/interhom/RSS/RSSNewsTopTen.xml"
+    url = "https://winnipeg.ctvnews.ca/rss/winnipeg"
     wpg = feedparser.parse(url)
-    print(time.strftime("%H:%M.") + prog + ver + ".BOTTOM_MARQUEE-RSS feed refreshed")
+    debug_msg("BOTTOM_MARQUEE-RSS feed refreshed",1)
 
     # use the first 8 entries on the wpg news RSS feed
     wpg_desc = wpg.entries[0]["description"] + pad + wpg.entries[1]["description"] + pad + wpg.entries[2]["description"] + pad + wpg.entries[3]["description"] + pad + wpg.entries[4]["description"] + pad + wpg.entries[5]["description"] + pad + wpg.entries[6]["description"] + pad + wpg.entries[7]["description"]
@@ -608,7 +597,7 @@ def bottom_marquee(grouptotal):
     restart_marquee = True # 
     while restart_marquee:
         restart_marquee = False
-        print(time.strftime("%H:%M.") + prog + ver + ".BOTTOM_MARQUEE-starting RSS display")
+        debug_msg("BOTTOM_MARQUEE-starting RSS display",1)
         for p in range(pixels+730):
             marquee.move(text, -1, 0) #shift the canvas to the left by 1 pixel
             marquee.update()
@@ -617,16 +606,22 @@ def bottom_marquee(grouptotal):
                 restart_marquee = True
                 marquee.move(text, pixels+729, 0) # reset the location
                 if (group <= grouptotal):
-                    print(time.strftime("%H:%M.") + prog + ver + ".BOTTOM_MARQUEE-refreshing weather info")
-                    weather_update(group) # update weather information between RSS scrolls
-                    print(time.strftime("%H:%M.") + prog + ver + ".BOTTOM_MARQUEE-weather info refreshed")
-                    group = group + 1
+                    debug_msg("BOTTOM_MARQUEE-refreshing weather info",1)
+                    try:
+                        weather_update(group) # update weather information between RSS scrolls
+                        debug_msg("BOTTOM_MARQUEE-weather info refreshed",1)
+                        group = group + 1
+                    except:
+                        debug_msg("BOTTOM_MARQUEE-ENV_CANADA_ERROR! weather info NOT refreshed",1)
                 else:
-                    print(time.strftime("%H:%M.") + prog + ver + ".BOTTOM_MARQUEE-refreshing weather info")
+                    debug_msg("BOTTOM_MARQUEE-refreshing weather info",1)
                     group = 1
-                    weather_update(group) # update weather information between RSS scrolls
-                    print(time.strftime("%H:%M.") + prog + ver + ".BOTTOM_MARQUEE-weather info refreshed")
-                    group = group + 1
+                    try:
+                        weather_update(group) # update weather information between RSS scrolls
+                        debug_msg("BOTTOM_MARQUEE-weather info refreshed",1)
+                        group = group + 1
+                    except:
+                        debug_msg("BOTTOM_MARQUEE-ENV_CANADA_ERROR! weather info NOT refreshed",1)
                     
                 p = 0 # keep the for loop from ending
 
@@ -637,7 +632,7 @@ def playlist_generator(musicpath):
     # create a list of file and sub directories 
     # names in the given directory 
 
-    print(time.strftime("%H:%M.") + prog + ver + ".PLAYLIST_GENERATOR-searching for music files...")
+    debug_msg("PLAYLIST_GENERATOR-searching for music files...",1)
     filelist = os.listdir(musicpath)
     allFiles = list()
     # Iterate over all the entries    
@@ -649,7 +644,7 @@ def playlist_generator(musicpath):
             allFiles = allFiles + playlist_generator(fullPath)
         else:
             allFiles.append(fullPath)
-    print(time.strftime("%H:%M.") + prog + ver + ".PLAYLIST_GENERATOR-found " + str(len(allFiles)))
+    debug_msg(("PLAYLIST_GENERATOR-found " + str(len(allFiles))),1)
     return allFiles
 
 # DEF play background music
@@ -658,18 +653,18 @@ def music_player(songNumber, playlist, musicpath):
     # make sure musicpath ONLY contains playable mp3 files. this does not check if files are valid and will crash if it tries to play something else
 
     if ((pygame.mixer.music.get_busy() == False) and (songNumber < len(playlist))):
-        print(time.strftime("%H:%M.") + prog + ver + ".MUSIC_PLAYER-playing song " + playlist[songNumber])  
+        debug_msg(("MUSIC_PLAYER-playing song " + playlist[songNumber]),1)
         pygame.mixer.music.load(playlist[songNumber])
         pygame.mixer.music.play(loops = 0)
         songNumber = songNumber + 1
     elif ((pygame.mixer.music.get_busy() == False) and (songNumber >= len(playlist))):
-        print(time.strftime("%H:%M.") + prog + ver + ".MUSIC_PLAYER-playlist complete,re-shuffling... ")
+        debug_msg("MUSIC_PLAYER-playlist complete,re-shuffling... ",1)
         songNumber = 0
         random.shuffle(playlist)   
 
     root.after(2000, music_player, songNumber, playlist, musicpath) # re-run every 2sec from program launch
 
-# DEF Word Shortner 5000
+# DEF Word Shortner 5000 
 def word_short(phrase, length):
     
     # dictionary of shortened words
@@ -702,12 +697,37 @@ def word_short(phrase, length):
         
         for key, value in dict.items():     # replace words using dictionary dict
             phrase = (re.sub(key, value, phrase))  
-            
-        #print(prog + ver + ".WORD_SHORT-phrase shortened to " + phrase)
+        
+        debug_msg(("WORD_SHORT-phrase shortened to " + phrase),2)        
         return phrase
         
     else:
         return phrase       # if length is fine, do nothing and send it back
+
+# DEF debug messenger
+def debug_msg(message, priority):
+
+    debugmode = 1;
+    # 0 = disabled
+    # 1 = normal (priority 1)
+    # 2 = verbose (priority 2)
+    
+    timestamp = 2;
+    # 0 = no date/time - Why would you ever want this? Enjoy!
+    # 1 = time only
+    # 2 = date & time
+    
+    # date/time string data
+    if (timestamp == 1):
+        timestr = time.strftime("%H:%M.")
+    elif (timestamp == 2):
+        timestr = time.strftime("%Y%m%d-%H:%M.")
+    else:
+        timestr = ""
+        
+    # print debug message based on debug mode
+    if ((debugmode > 0) and (priority <= debugmode)):
+        print(timestr + prog + "." + ver + "." + message)
 
 # ROOT main stuff
 
@@ -721,20 +741,20 @@ root.wm_title("wpg-weatherchan")
 # Clock - Top RIGHT
 # this got complicated due to the new font (7-Segment Normal), which doesn't have proper colon(:) char, 
 # so I've removed the colon from the time string and added them on top using VCR OSD Mono
-print(time.strftime("%H:%M.") + prog + ver + ".ROOT-placing clock")
+debug_msg("ROOT-placing clock",1)
 timeText = Label(root, text="", font=("7-Segment Normal", 22), fg="white", bg="green")
-timeText.place(x=403, y=42)
+timeText.place(x=403, y=40)
 timeColon1 = Label(root, text=":", font=("VCR OSD Mono", 32), fg="white", bg="green")
 timeColon1.place(x=465, y=36)
 timeColon2 = Label(root, text=":", font=("VCR OSD Mono", 32), fg="white", bg="green")
 timeColon2.place(x=560, y=36)
-print(time.strftime("%H:%M.") + prog + ver + ".ROOT-launching clock updater")
+debug_msg("ROOT-launching clock updater",1)
 clock()
 
 # Title - Top LEFT
-print(time.strftime("%H:%M.") + prog + ver + ".ROOT-placing Title Text")
+debug_msg("ROOT-placing Title Text",1)
 Title = Label(root, text="ENVIRONMENT CANADA", font=("VCR OSD Mono", 22, "bold"), fg="white", bg="green")
-Title.place(x=80, y=50)
+Title.place(x=80, y=40)
 
 # use ECWeather to gather weather data, station_id is from the csv file provided with ECDada -- homepage: https://github.com/michaeldavie/env_canada
 
@@ -777,29 +797,29 @@ real_forecast_time = ""
 real_forecast_date = ""
 
 # Update Weather Information
-print(time.strftime("%H:%M.") + prog + ver + ".ROOT-launching weather update")
+debug_msg("ROOT-launching weather update",1)
 weather_update(0) # update all cities
 
 # Middle Section (Cycling weather pages, every 30sec)
-print(time.strftime("%H:%M.") + prog + ver + ".ROOT-launching weather_page")
+debug_msg("ROOT-launching weather_page",1)
 PageColour = "Blue"
 PageNum = 1
 weather_page(PageColour, PageNum)
 
 # Generate background music playlist
-print(time.strftime("%H:%M.") + prog + ver + ".ROOT-launching playlist generator")
+debug_msg("ROOT-launching playlist generator",1)
 musicpath = "/home/probnot/WeatherPi/music" # must show full path
 playlist = playlist_generator(musicpath) # generate playlist array
 random.shuffle(playlist) # shuffle playlist
 
 # Play background music on shuffle using pygame
-print(time.strftime("%H:%M.") + prog + ver + ".ROOT-launching background music")
+debug_msg("ROOT-launching background music",1)
 songNumber = 1
 pygame.mixer.init()
 music_player(songNumber, playlist, musicpath)
 
 # Bottom Scrolling Text (City of Winnipeg RSS Feed)
-print(time.strftime("%H:%M.") + prog + ver + ".ROOT-launching bottom_marquee")
+debug_msg("ROOT-launching bottom_marquee",1)
 bottom_marquee(grouptotal)
 
 # loop program  
