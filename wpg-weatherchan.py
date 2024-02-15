@@ -17,7 +17,11 @@ import os # for background music
 import re # for word shortener
 
 prog = "wpg-weather"
-ver = "2.0.8"
+ver = "2.0.9"
+# 2.0.9 [2024-02-11]
+# - Fixed bug that has old blue colour upon launch (line 817), also changed blue to 0x00006D as noted in 2.0.8 but missed
+# - Updated RSS section -- old code assumed at least 8 entries. new code is flexible up to max pixel size, also fixed it so it actually refreshes
+# - Changed RSS scroll time to 2ms (was 5ms) to match original videon/shaw feed
 # 2.0.8 [2024-01-20]
 #   BUGFIX:
 # - Added try functions to weather update (line 610 & 619) to prevent crashing once running - program will still crash if weather update fails on initial launch
@@ -449,13 +453,13 @@ def weather_page(PageColour, PageNum):
         # create 8 lines of text
 
         s1 = "==========CHANNEL LISTING=========="
-        s2 = "  2 SIMPSNS    14 90sTV    62 MUSIC"    
-        s3 = "3.1 CBC FR.    16 TOONS" 
-        s4 = "  6 60s/70s    22 80sTV"         
-        s5 = "6.1 CBC        24 GLOBAL"
-        s6 = "7.1 CTV      35.1 FAITH"
-        s7 = "9.1 GLOBAL     50 COMEDY"
-        s8 = " 10 CBC        54 WEATHR" 
+        s2 = "  2 SIMPSNS  13.1 CITY    50 SECUR"    
+        s3 = "3.1 CBC FR.    14 90sTV   54 COMEDY" 
+        s4 = "  6 60s/70s    16 TOONS   61 MUSIC"         
+        s5 = "6.1 CBC        22 GLOBAL  64 WEATHR"
+        s6 = "7.1 CTV        24 80sTV"
+        s7 = "9.1 GLOBAL   35.1 FAITH"
+        s8 = " 10 CBC        45 CHROMECAST" 
 
     # create the canvas for middle page text
 
@@ -474,10 +478,10 @@ def weather_page(PageColour, PageNum):
     weather.create_text(80, 270, anchor='nw', text=s8, font=('VCR OSD Mono', 21,), fill="white") 
     
     # Toggle Page Colour between Red & Blue
-    if (PageColour == "#0000A5"): # blue
+    if (PageColour == "#00006D"): # blue
         PageColour = "#6D0000" # red
     else:
-        PageColour = "#0000A5" # blue
+        PageColour = "#00006D" # blue
         
     # Increment Page Number or Reset
     if (PageNum < PageTotal):
@@ -580,19 +584,25 @@ def bottom_marquee(grouptotal):
     wpg = feedparser.parse(url)
     debug_msg("BOTTOM_MARQUEE-RSS feed refreshed",1)
 
-    # use the first 8 entries on the wpg news RSS feed
-    wpg_desc = wpg.entries[0]["description"] + pad + wpg.entries[1]["description"] + pad + wpg.entries[2]["description"] + pad + wpg.entries[3]["description"] + pad + wpg.entries[4]["description"] + pad + wpg.entries[5]["description"] + pad + wpg.entries[6]["description"] + pad + wpg.entries[7]["description"]
+    # Add first entry to string without padding
+    wpg_desc = pad + wpg.entries[0]["description"]
+    
+    # Append all other RSS entry descriptions, with 35 character padding in between
+    for n in range(len(wpg.entries)):
+        if (n == 0) or ((len(wpg_desc + pad + wpg.entries[n]["description"]) * 24) >= 31000): # avoid duplicate first entry / check if string will be max pixels allowed
+            n = n + 1
+        else:
+            wpg_desc = wpg_desc + pad + wpg.entries[n]["description"]
+    
+    # convert to upper case
     mrq_msg = wpg_desc.upper()
 
     # use the length of the news feeds to determine the total pixels in the scrolling section
     marquee_length = len(mrq_msg)
-    if (marquee_length * 24)<31000:
-        pixels = marquee_length * 24 # roughly 24px per char
-    else:
-        pixels = 31000
+    pixels = marquee_length * 24 # roughly 24px per char
 
     # setup scrolling text
-    text = marquee.create_text(1, 2, anchor='nw', text=pad + mrq_msg + pad + pad, font=('VCR OSD Mono', 25,), fill="white")
+    text = marquee.create_text(1, 2, anchor='nw', text=pad + mrq_msg + pad, font=('VCR OSD Mono', 25,), fill="white")
 
     restart_marquee = True # 
     while restart_marquee:
@@ -601,12 +611,12 @@ def bottom_marquee(grouptotal):
         for p in range(pixels+730):
             marquee.move(text, -1, 0) #shift the canvas to the left by 1 pixel
             marquee.update()
-            time.sleep(0.005) # scroll every 5ms
+            time.sleep(0.002) # scroll every 2ms
             if (p == pixels+729): # once the canvas has finished scrolling
                 restart_marquee = True
                 marquee.move(text, pixels+729, 0) # reset the location
                 if (group <= grouptotal):
-                    debug_msg("BOTTOM_MARQUEE-refreshing weather info",1)
+                    debug_msg("BOTTOM_MARQUEE-launching weather update",1)
                     try:
                         weather_update(group) # update weather information between RSS scrolls
                         debug_msg("BOTTOM_MARQUEE-weather info refreshed",1)
@@ -614,7 +624,7 @@ def bottom_marquee(grouptotal):
                     except:
                         debug_msg("BOTTOM_MARQUEE-ENV_CANADA_ERROR! weather info NOT refreshed",1)
                 else:
-                    debug_msg("BOTTOM_MARQUEE-refreshing weather info",1)
+                    debug_msg("BOTTOM_MARQUEE-launching weather update",1)
                     group = 1
                     try:
                         weather_update(group) # update weather information between RSS scrolls
@@ -624,6 +634,8 @@ def bottom_marquee(grouptotal):
                         debug_msg("BOTTOM_MARQUEE-ENV_CANADA_ERROR! weather info NOT refreshed",1)
                     
                 p = 0 # keep the for loop from ending
+                wpg = feedparser.parse(url)
+                debug_msg("BOTTOM_MARQUEE-RSS feed refreshed",1)
 
 # DEF generate playlist from folder
 def playlist_generator(musicpath):
@@ -802,7 +814,7 @@ weather_update(0) # update all cities
 
 # Middle Section (Cycling weather pages, every 30sec)
 debug_msg("ROOT-launching weather_page",1)
-PageColour = "Blue"
+PageColour = "00006D" # blue
 PageNum = 1
 weather_page(PageColour, PageNum)
 
